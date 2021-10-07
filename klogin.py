@@ -2,17 +2,18 @@
 
 import argparse
 import subprocess
-import os
 import re
 import props
+import getpass
+import os
 
 
 def do_kdestroy(search_dir=''):
     try:
-        argv = [str(search_dir) + 'kdestroy']
+        argv = [search_dir + 'kdestroy']
         process = subprocess.run(argv, timeout=5, text=True, capture_output=True)
     except subprocess.CalledProcessError as c:
-        raise c
+        print(c)
 
 
 def get_klist(search_dir=''):
@@ -21,7 +22,7 @@ def get_klist(search_dir=''):
         # klist to show the name of the cache
         argv = [search_dir + 'klist']
         process = subprocess.run(argv, capture_output=True, timeout=5, text=True)
-        result = process.stdout
+        result = process.stdout + process.stderr
     except subprocess.CalledProcessError as c:
         raise c
     finally:
@@ -30,47 +31,55 @@ def get_klist(search_dir=''):
 
 def get_armor_cache(realm, search_dir=''):
     result = None
-
+    do_kdestroy(search_dir=search_dir)
     try:
         # anonymous kinit to create armor cache
         argv = [search_dir + 'kinit', '-n', '@{0}'.format(realm)]
         subprocess.run(argv, capture_output=True, timeout=5, text=True)
-        result = re.findall(props.cache_regex, str(get_klist(search_dir)))[0]
+        output = str(get_klist(search_dir))
+        result = re.findall(props.cache_regex, output)[0]
     except subprocess.CalledProcessError as c:
         raise c
     except IndexError as i:
-        pass
+        print("ERROR: No WELLKNOWN/ANONYMOUS ticket cache found in klist output.  Perhaps specify --search_dir to make sure you're calling the right copy of klist")
 
     return result
 
 
-def do_kinit(principle=None, password=None, otp=None, search_dir=''):
+def do_kinit(principle=None, password=None, otp=None, search_dir='', cache=None):
     process = None
     realm = ''
     argv = [search_dir + 'kinit']
-    if principle is None:
-        principle = input('enter principle: ')
-    if '@' in principle:
-        realm = principle.split('@')[1]
-    argv.append(principle)
-    if password is None:
-        password = input('enter password: ')
+    try:
+        if principle is None:
+            principle = getpass.getuser()
+        if '@' in principle:
+            realm = principle.split('@')[1]
+        argv.append(principle)
+        if password is None:
+            password = getpass.getpass()
+    except getpass.GetPassWarning as g:
+        raise g
     if otp is None:
         otp = input('enter OTP: ')
-    if otp is None or otp is '':
+    if otp is None or otp == '':
         pass
     else:
-        argv.append('-T')
-        argv.append(get_armor_cache(realm=realm, search_dir=search_dir))
+        if cache is None:
+            cache = get_armor_cache(realm=realm, search_dir=search_dir)
+        if cache is not None:
+            argv.append('-T')
+            argv.append(cache)
 
     try:
         # real kinit using armor cache to support OTP if needed
         secrets = '{0}{1}'.format(password, otp)
-        print(argv, secrets)
         process = subprocess.run(argv, capture_output=True, text=True, input=secrets)
         # process.stdin.write(secrets)
     except subprocess.CalledProcessError as c:
         raise c
+    except TypeError as t:
+        print(t)
 
 
 if __name__ == '__main__':
@@ -85,4 +94,8 @@ if __name__ == '__main__':
 
     # do_kdestroy(args.search_dir)
     do_kinit(principle=args.principle, password=args.password, otp=args.otp, search_dir=args.search_dir)
-    print(get_klist(search_dir=args.search_dir))
+    klist = get_klist(search_dir=args.search_dir)
+    if args.principle in klist:
+        print("login succeeded:" + os.linesep + str(klist))
+    else:
+        print("login failed")

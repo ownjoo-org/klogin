@@ -24,16 +24,40 @@ class TestKLogin(unittest.TestCase):
     def test_get_klist(self):
         # setup
         local_dir = props.local_dir
+        expected_cache = 'Ticket cache:'
+        expected_principle = 'Default principal: WELLKNOWN/ANONYMOUS@WELLKNOWN:ANONYMOUS'
+        expected_empty = 'klist: No credentials cache found'
 
         # execute
+
         actual = klogin.get_klist(local_dir)
 
         # assess
-        self.assertIsNotNone(actual)
+        self.assertIsNotNone(actual, 'actual is None')
+        if expected_cache in actual:
+            self.assertIn(expected_cache, actual, 'actual did not contain Ticket cache')
+            self.assertIn(expected_principle, actual, 'actual did not contain WELLKNOWN/ANONYMOUS principle')
+        else:
+            self.assertIn(expected_empty, actual)
 
         # teardown
 
-    # integration test: OTP values are dynamic/unpredictable
+    def test_do_kdestroy_and_get_klist(self):
+        # setup
+        local_dir = props.local_dir
+        expected_empty = 'klist: No credentials cache found'
+
+        # execute
+        klogin.do_kdestroy(local_dir)
+        actual = klogin.get_klist(local_dir)
+
+        # assess
+        self.assertIsNotNone(actual, 'actual is None')
+        self.assertIn(expected_empty, actual)
+
+        # teardown
+
+    # # integration test: OTP values are dynamic/unpredictable
     # def test_kinit(self):
     #     # setup
     #     local_dir = props.local_dir
