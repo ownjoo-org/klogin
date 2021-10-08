@@ -57,7 +57,7 @@ class TestKLogin(unittest.TestCase):
 
         # teardown
 
-    # # integration test: OTP values are dynamic/unpredictable
+    # # integration test: OTP values are dynamic/unpredictable, TODO: software token?
     # def test_kinit(self):
     #     # setup
     #     local_dir = props.local_dir
