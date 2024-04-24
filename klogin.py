@@ -51,29 +51,27 @@ def do_kinit(principle=None, password=None, otp=None, search_dir='', cache=None)
     realm = ''
     argv = [search_dir + 'kinit']
     try:
-        if principle is None:
+        if not principle:
             principle = getpass.getuser()
         if '@' in principle:
             realm = principle.split('@')[1]
         argv.append(principle)
-        if password is None:
+        if not password:
             password = getpass.getpass()
     except getpass.GetPassWarning as g:
         raise g
-    if otp is None:
+    if not otp:
         otp = input('enter OTP: ')
-    if otp is None or otp == '':
-        pass
-    else:
-        if cache is None:
+    if not otp:
+        if not cache:
             cache = get_armor_cache(realm=realm, search_dir=search_dir)
-        if cache is not None:
+        if cache:
             argv.append('-T')
             argv.append(cache)
 
     try:
         # real kinit using armor cache to support OTP if needed
-        secrets = '{0}{1}'.format(password, otp)
+        secrets = f'{password}{otp}'
         process = subprocess.run(argv, capture_output=True, text=True, input=secrets)
         # process.stdin.write(secrets)
     except subprocess.CalledProcessError as c:
@@ -88,7 +86,11 @@ if __name__ == '__main__':
     parser.add_argument("--password", help='password (without OTP)')
     parser.add_argument("--otp", help='OTP value (will be appended to password)')
     parser.add_argument("--cache", help='credential cache specifier')
-    parser.add_argument("--search_dir", default='', help='specify a path name for the kdestroy, kinit, klist executables')
+    parser.add_argument(
+        "--search_dir",
+        default='',
+        help='specify a path name for the kdestroy, kinit, klist executables',
+    )
 
     args = parser.parse_args()
 
